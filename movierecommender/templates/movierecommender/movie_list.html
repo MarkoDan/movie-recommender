@@ -99,8 +99,10 @@
                         <p class="card-text">{{movie.original_language}}, {{movie.release_date}}</p>
                         <form method="post" action="">
                             {% csrf_token %}
-                            <input type="hidden" name="movie_id" value="{{movie.id}}">
-                            <input type="submit" value="I've watched this!" class="btn btn-dark">
+                            {%if user.is_authenticated%}
+                                <input type="hidden" name="movie_id" value="{{movie.id}}">
+                                <input type="submit" value="I've watched this!" class="btn btn-dark">
+                            {% endif %}
                         </form>
                     </div>
                 </div>

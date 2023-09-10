@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.contrib.auth.models import User
 
 # Create your models here.
 # HINT: Create a Movie model here
@@ -30,3 +30,8 @@ class Movie(models.Model):
     watched = models.BooleanField(default=False, null=True)
     # If this movie will be recommended
     recommended = models.BooleanField(default=False, null=True)
+
+class UsersWatchedMovies(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
+    watched_on = models.DateTimeField(auto_now_add=True)

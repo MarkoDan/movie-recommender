@@ -1,7 +1,7 @@
 from venv import logger
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from . import views
-from .models import Movie
+from .models import Movie, UsersWatchedMovies
 from django.shortcuts import render
 from django.contrib.auth import login, logout, authenticate
 from django.shortcuts import get_object_or_404, render, redirect
@@ -12,51 +12,53 @@ logger = logging.getLogger(__name__)
 
 
 def movie_recommendation_view(request):
-    if request.method == "POST":
+    if request.method == "POST" and request.user.is_authenticated:
         movie_id = request.POST.get('movie_id')
         if movie_id:
             movie = Movie.objects.get(pk=movie_id)
-            movie.watched = True
-            movie.save()
+            UsersWatchedMovies.objects.create(user=request.user, movie=movie)
+            # movie.watched = True
+            # movie.save()
         
         return HttpResponseRedirect(request.path_info)
 
-    elif request.method == "GET":
+    elif request.method == "GET" and request.user.is_authenticated:
       # The context/data to be presented in the HTML template
-      context = generate_movies_context()
+      context = generate_movies_context_for_user(request.user)
       # Render a HTML page with specified template and context
+      return render(request, 'movierecommender/movie_list.html', context)
+    else:
+      context = generate_content_for_unauth_users()
       return render(request, 'movierecommender/movie_list.html', context)
 
 
 
-def generate_movies_context():
+def generate_movies_context_for_user(user):
 
-    #The context/data to presented in HTML template
     context = {}
-
-    recommended_count = Movie.objects.filter(
-        recommended=True
-    ).count()
-
-    #If there are no recommended movies
-    if recommended_count == 0:
-        #Just return the top voted and unwatched movies as popular ones
-        movies = Movie.objects.filter(
-            watched=False
-        ).order_by('-vote_count')[:30]
+    watched_movie_ids = UsersWatchedMovies.objects.filter(user=user).values_list('movie_id', flat=True)
+    watched_genres = UsersWatchedMovies.objects.filter(user=user).values_list('movie__genres', flat=True)
+    # recommended_movies = Movie.objects.exclude(id__in=watched_movie_ids).order_by('-vote_count')[:30]
     
-    else:
-
-        #Get the top voted, unwatched, and recommended movies
-        movies = Movie.objects.filter(
-            watched=False
-        ).filter(
-            recommended=True
-        ).order_by('-vote_count')[:30]
+    recommended_movies = Movie.objects.filter(genres__in=watched_genres).exclude(id__in=watched_movie_ids).order_by('-vote_count')[:30]
     
-    context['movie_list'] = movies
+    if not recommended_movies:
+        recommended_movies = Movie.objects.exclude(id__in=watched_movie_ids).order_by('vote_count')[:30]
+    
+
+    context['movie_list'] = recommended_movies
 
     return context
+
+def generate_content_for_unauth_users():
+    
+    context = {}
+
+    top_rated_movies = Movie.objects.all().order_by('-vote_count')[:30]
+
+    context['movie_list'] = top_rated_movies
+    return context
+
 
 def login_request(request):
     context = {}
@@ -119,15 +121,3 @@ def logout_request(request):
     #Redirect user back to course list view
     return redirect('movie_recommender:recommendations')
 
-# def get_movie_recommendations(request):
-#     start = int(request.GET.get('start', 0))
-#     end = int(request.GET.get('end', start + 15))
-
-#     movies = Movie.objects.filter(watched=False).order_by('-vote_count')[start:end]
-
-#     #Convert the movies to a list of dictionaries for JSON serialization
-#     movies_list = []
-#     for movie in movies:
-#         movies_list = [{"id": movie.id, "title": movie.title}]
-
-#     return JsonResponse(movies_list, safe=False)
